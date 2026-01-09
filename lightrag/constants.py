@@ -90,13 +90,13 @@ DEFAULT_ENABLE_COOCCURRENCE_INFERENCE = True
 # Increased from 2 to 3 for higher quality inference (type-specific thresholds apply additionally)
 DEFAULT_MIN_COOCCURRENCE = 3
 
-# Async configuration defaults
-DEFAULT_MAX_ASYNC = 4  # Default maximum async operations
-DEFAULT_MAX_PARALLEL_INSERT = 2  # Default maximum parallel insert operations
+# Async configuration defaults (MAXIMUM PERFORMANCE for production)
+DEFAULT_MAX_ASYNC = 64  # Default maximum async operations (was 4, now 64 for max speed)
+DEFAULT_MAX_PARALLEL_INSERT = 12  # Default maximum parallel insert operations (was 2, now 12 for max speed)
 
-# Embedding configuration defaults
-DEFAULT_EMBEDDING_FUNC_MAX_ASYNC = 8  # Default max async for embedding functions
-DEFAULT_EMBEDDING_BATCH_NUM = 10  # Default batch size for embedding computations
+# Embedding configuration defaults (MAXIMUM PERFORMANCE)
+DEFAULT_EMBEDDING_FUNC_MAX_ASYNC = 64  # Default max async for embedding functions (was 8, now 64 for max speed)
+DEFAULT_EMBEDDING_BATCH_NUM = 20  # Default batch size for embedding computations (was 10, now 20 for better batching)
 
 # Gunicorn worker timeout
 DEFAULT_TIMEOUT = 300
