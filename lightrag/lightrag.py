@@ -51,6 +51,8 @@ from lightrag.constants import (
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_EMBEDDING_TIMEOUT,
     DEFAULT_SOURCE_IDS_LIMIT_METHOD,
+    DEFAULT_EMBEDDING_FUNC_MAX_ASYNC,
+    DEFAULT_EMBEDDING_BATCH_NUM,
     DEFAULT_MAX_FILE_PATHS,
     DEFAULT_FILE_PATH_MORE_PLACEHOLDER,
 )
@@ -288,11 +290,11 @@ class LightRAG:
     embedding_token_limit: int | None = field(default=None, init=False)
     """Token limit for embedding model. Set automatically from embedding_func.max_token_size in __post_init__."""
 
-    embedding_batch_num: int = field(default=int(os.getenv("EMBEDDING_BATCH_NUM", 10)))
+    embedding_batch_num: int = field(default=int(os.getenv("EMBEDDING_BATCH_NUM", DEFAULT_EMBEDDING_BATCH_NUM)))
     """Batch size for embedding computations."""
 
     embedding_func_max_async: int = field(
-        default=int(os.getenv("EMBEDDING_FUNC_MAX_ASYNC", 8))
+        default=int(os.getenv("EMBEDDING_FUNC_MAX_ASYNC", DEFAULT_EMBEDDING_FUNC_MAX_ASYNC))
     )
     """Maximum number of concurrent embedding function calls."""
 
@@ -1779,7 +1781,7 @@ class LightRAG:
                                 )
                                 pipeline_status["cur_batch"] = processed_count
 
-                                log_message = f"Extracting stage {current_file_number}/{total_files}: {file_path}"
+                                log_message = f"Extracting ({processed_count}/{total_files}): {file_path}"
                                 logger.info(log_message)
                                 pipeline_status["history_messages"].append(log_message)
                                 log_message = f"Processing d-id: {doc_id}"
@@ -2049,7 +2051,7 @@ class LightRAG:
                                 else:
                                     # Other exceptions - log with traceback
                                     logger.error(traceback.format_exc())
-                                    error_msg = f"Merging stage failed in document {current_file_number}/{total_files}: {file_path}"
+                                    error_msg = f"Merging failed ({current_file_number}/{total_files}): {file_path}"
                                     logger.error(error_msg)
                                     async with pipeline_status_lock:
                                         pipeline_status["latest_message"] = error_msg

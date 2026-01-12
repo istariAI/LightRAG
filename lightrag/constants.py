@@ -91,8 +91,8 @@ DEFAULT_ENABLE_COOCCURRENCE_INFERENCE = True
 DEFAULT_MIN_COOCCURRENCE = 3
 
 # Async configuration defaults (MAXIMUM PERFORMANCE for production)
-DEFAULT_MAX_ASYNC = 64  # Default maximum async operations (was 4, now 64 for max speed)
-DEFAULT_MAX_PARALLEL_INSERT = 12  # Default maximum parallel insert operations (was 2, now 12 for max speed)
+DEFAULT_MAX_ASYNC = 128  # Default maximum async operations (was 4, then 64, now 128 for max speed)
+DEFAULT_MAX_PARALLEL_INSERT = 32  # Default maximum parallel insert operations (was 2, then 12, now 32 for max speed)
 
 # Embedding configuration defaults (MAXIMUM PERFORMANCE)
 DEFAULT_EMBEDDING_FUNC_MAX_ASYNC = 64  # Default max async for embedding functions (was 8, now 64 for max speed)

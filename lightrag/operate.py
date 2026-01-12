@@ -2492,7 +2492,7 @@ async def merge_nodes_and_edges(
     total_entities_count = len(all_nodes)
     total_relations_count = len(all_edges)
 
-    log_message = f"Merging stage {current_file_number}/{total_files}: {file_path}"
+    log_message = f"Merging ({current_file_number}/{total_files}): {file_path}"
     logger.info(log_message)
     async with pipeline_status_lock:
         pipeline_status["latest_message"] = log_message
