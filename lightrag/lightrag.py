@@ -353,6 +353,24 @@ class LightRAG:
         default=int(os.getenv("LLM_TIMEOUT", DEFAULT_LLM_TIMEOUT))
     )
 
+    # Debate LLM Configuration
+    # ---
+
+    debate_model_func: Callable[..., object] | None = field(default=None)
+    """Function for the debate/critique LLM layer. If None, debate mode will use llm_model_func.
+    This allows using a more advanced model (e.g., Gemini 2.5 Flash) for quality refinement."""
+
+    debate_model_name: str = field(default=os.getenv("DEBATE_LLM_MODEL", "gemini-2.0-flash-thinking-exp"))
+    """Name of the debate LLM model. Defaults to Gemini 2.0 Flash Thinking for high-quality critiques."""
+
+    debate_model_max_async: int = field(
+        default=int(os.getenv("DEBATE_MAX_ASYNC", "32"))
+    )
+    """Maximum number of concurrent debate LLM calls. Lower than main LLM since it runs sequentially."""
+
+    debate_model_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments passed to the debate LLM model function."""
+
     # Rerank Configuration
     # ---
 
@@ -663,6 +681,25 @@ class LightRAG:
                 **self.llm_model_kwargs,
             )
         )
+
+        # Initialize debate model function if provided
+        if self.debate_model_func is not None:
+            logger.info(
+                f"Initializing debate model: {self.debate_model_name} with {self.debate_model_max_async} max async"
+            )
+            self.debate_model_func = priority_limit_async_func_call(
+                self.debate_model_max_async,
+                llm_timeout=self.default_llm_timeout,
+                queue_name="Debate LLM func",
+            )(
+                partial(
+                    self.debate_model_func,  # type: ignore
+                    hashing_kv=None,  # No caching for debate layer
+                    **self.debate_model_kwargs,
+                )
+            )
+        else:
+            logger.info("No separate debate model configured, will use main LLM if debate is enabled")
 
         self._storages_status = StoragesStatus.CREATED
 
@@ -2680,6 +2717,61 @@ class LightRAG:
         await self._query_done()
         return final_data
 
+    async def _apply_debate_layer(
+        self,
+        query: str,
+        original_response: str,
+        context: str,
+        param: QueryParam,
+    ) -> str:
+        """Apply debate/critique layer to improve response quality.
+
+        Args:
+            query: The user's original question
+            original_response: The initial response from the first LLM
+            context: The retrieved context used for the original response
+            param: Query parameters
+
+        Returns:
+            str: The refined response after critique and improvement
+        """
+        try:
+            # Use debate model if provided, otherwise fall back to main LLM
+            debate_func = param.debate_model_func or self.debate_model_func or self.llm_model_func
+
+            # Apply higher priority (9) for debate tasks
+            debate_func = partial(debate_func, _priority=9)
+
+            # Format the debate prompt
+            debate_prompt = PROMPTS["debate_critique"].format(
+                query=query,
+                original_response=original_response,
+                context=context
+            )
+
+            # Get refined response from debate model (no streaming for debate)
+            refined_response = await debate_func(
+                debate_prompt,
+                system_prompt="You are an expert quality assurance specialist focused on improving AI response quality.",
+                enable_cot=False,  # Disable COT for cleaner output
+                stream=False
+            )
+
+            # Extract the final response from the debate output
+            if "**Final Response:**" in refined_response:
+                # Extract everything after "**Final Response:**"
+                parts = refined_response.split("**Final Response:**", 1)
+                if len(parts) > 1:
+                    return parts[1].strip()
+
+            # If format not found, return the full refined response
+            return refined_response
+
+        except Exception as e:
+            logger.warning(f"Debate layer failed: {e}. Returning original response.")
+            # If debate fails, return original response
+            return original_response
+
     async def aquery_llm(
         self,
         query: str,
@@ -2791,15 +2883,52 @@ class LightRAG:
 
             # Extract structured data from query result
             raw_data = query_result.raw_data or {}
-            raw_data["llm_response"] = {
-                "content": query_result.content
-                if not query_result.is_streaming
-                else None,
-                "response_iterator": query_result.response_iterator
-                if query_result.is_streaming
-                else None,
-                "is_streaming": query_result.is_streaming,
-            }
+
+            # Apply debate layer if enabled and response is not streaming
+            if param.enable_debate and not query_result.is_streaming and query_result.content:
+                logger.info("Applying debate layer for response quality improvement")
+
+                # Get context from raw_data if available
+                context_parts = []
+                if "data" in raw_data:
+                    data = raw_data["data"]
+                    if "entities" in data:
+                        context_parts.append(f"Entities: {data['entities']}")
+                    if "relationships" in data:
+                        context_parts.append(f"Relationships: {data['relationships']}")
+                    if "chunks" in data:
+                        context_parts.append(f"Chunks: {data['chunks']}")
+
+                context_str = "\n\n".join(context_parts) if context_parts else "No context available"
+
+                # Apply debate layer
+                refined_content = await self._apply_debate_layer(
+                    query=query.strip(),
+                    original_response=query_result.content,
+                    context=context_str,
+                    param=param
+                )
+
+                # Update the response with refined content
+                raw_data["llm_response"] = {
+                    "content": refined_content,
+                    "response_iterator": None,
+                    "is_streaming": False,
+                    "debate_applied": True,
+                    "original_response": query_result.content,  # Keep original for comparison
+                }
+            else:
+                # No debate layer - use original response
+                raw_data["llm_response"] = {
+                    "content": query_result.content
+                    if not query_result.is_streaming
+                    else None,
+                    "response_iterator": query_result.response_iterator
+                    if query_result.is_streaming
+                    else None,
+                    "is_streaming": query_result.is_streaming,
+                    "debate_applied": False,
+                }
 
             return raw_data
 

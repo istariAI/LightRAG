@@ -162,6 +162,18 @@ class QueryParam:
     Default is True to enable reranking when rerank model is available.
     """
 
+    enable_debate: bool = os.getenv("ENABLE_DEBATE", "false").lower() == "true"
+    """Enable LLM debate mode for improved response quality.
+    When enabled, a second LLM (debate_model_func) critiques and refines the initial response.
+    Default is False to maintain backward compatibility.
+    """
+
+    debate_model_func: Callable[..., object] | None = None
+    """Optional LLM model function for the debate/critique layer.
+    If enable_debate is True and this is None, will use the default debate model configuration.
+    This allows using a different (typically more advanced) model for quality refinement.
+    """
+
     include_references: bool = False
     """If True, includes reference list in the response for supported endpoints.
     This parameter controls whether the API response includes a references field
