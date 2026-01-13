@@ -2941,8 +2941,8 @@ class LightRAG:
         original_query = query.strip()
 
         try:
-            # Step 1: Translate query if translation is enabled
-            if param.enable_translation and not param.stream:
+            # Step 1: Translate query if translation is enabled (works for both streaming and non-streaming)
+            if param.enable_translation:
                 translated_query = await self._translate_query(
                     user_query=original_query,
                     conversation_history=param.conversation_history,
@@ -3040,11 +3040,26 @@ class LightRAG:
             # Extract structured data from query result
             raw_data = query_result.raw_data or {}
 
-            # Step 2: Apply translation layer first (if enabled and not streaming)
-            current_response = query_result.content
+            # Handle streaming responses with translation/debate enabled
+            # Buffer the stream first if we need to apply translation or debate
+            if query_result.is_streaming and (param.enable_translation or param.enable_debate):
+                logger.info("Buffering streaming response for translation/debate processing")
+                # Collect all chunks from the stream
+                buffered_chunks = []
+                async for chunk in query_result.response_iterator:
+                    buffered_chunks.append(chunk)
+
+                # Combine into full response
+                current_response = "".join(buffered_chunks)
+                is_streaming_original = True
+            else:
+                current_response = query_result.content
+                is_streaming_original = query_result.is_streaming
+
+            # Step 2: Apply translation layer first (if enabled and we have content)
             translation_applied = False
 
-            if param.enable_translation and not query_result.is_streaming and current_response:
+            if param.enable_translation and current_response:
                 logger.info("Applying translation layer for response humanization")
                 current_response = await self._translate_response(
                     user_query=original_query,
@@ -3057,7 +3072,7 @@ class LightRAG:
             # Step 3: Apply debate layer for quality improvement (if enabled)
             debate_applied = False
 
-            if param.enable_debate and not query_result.is_streaming and current_response:
+            if param.enable_debate and current_response:
                 logger.info("Applying debate layer for response quality improvement")
 
                 # Get context from raw_data if available
@@ -3083,21 +3098,32 @@ class LightRAG:
                 debate_applied = True
 
             # Build final response
-            if not query_result.is_streaming:
+            # If translation or debate was applied, always return non-streaming
+            if translation_applied or debate_applied:
                 raw_data["llm_response"] = {
                     "content": current_response,
                     "response_iterator": None,
-                    "is_streaming": False,
+                    "is_streaming": False,  # Converted to non-streaming after processing
                     "translation_applied": translation_applied,
                     "debate_applied": debate_applied,
-                    "original_response": query_result.content if (translation_applied or debate_applied) else None,
+                    "original_response": query_result.content if not is_streaming_original else "[streaming response buffered]",
+                    "was_streaming": is_streaming_original,  # Indicate it was originally streaming
                 }
-            else:
-                # Streaming mode - no translation or debate
+            elif is_streaming_original:
+                # Original streaming mode preserved (no translation or debate)
                 raw_data["llm_response"] = {
                     "content": None,
                     "response_iterator": query_result.response_iterator,
                     "is_streaming": True,
+                    "translation_applied": False,
+                    "debate_applied": False,
+                }
+            else:
+                # Non-streaming, no processing
+                raw_data["llm_response"] = {
+                    "content": current_response,
+                    "response_iterator": None,
+                    "is_streaming": False,
                     "translation_applied": False,
                     "debate_applied": False,
                 }
