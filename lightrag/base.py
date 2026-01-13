@@ -162,18 +162,6 @@ class QueryParam:
     Default is True to enable reranking when rerank model is available.
     """
 
-    enable_debate: bool = os.getenv("ENABLE_DEBATE", "true").lower() == "true"
-    """Enable LLM debate mode for improved response quality.
-    When enabled, a second LLM (debate_model_func) critiques and refines the initial response.
-    Default is True for maximum quality - always enabled.
-    """
-
-    debate_model_func: Callable[..., object] | None = None
-    """Optional LLM model function for the debate/critique layer.
-    If enable_debate is True and this is None, will use the default debate model configuration.
-    This allows using a different (typically more advanced) model for quality refinement.
-    """
-
     enable_translation: bool = os.getenv("ENABLE_TRANSLATION", "true").lower() == "true"
     """Enable LLM translation layer for query optimization and response humanization.
     When enabled, a translator LLM optimizes the user query before retrieval and
