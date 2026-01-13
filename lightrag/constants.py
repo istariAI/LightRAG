@@ -104,7 +104,7 @@ DEFAULT_TRANSLATOR_MAX_ASYNC = 32  # Concurrent translator LLM calls
 DEFAULT_TRANSLATOR_LLM_MODEL = "gemini-2.0-flash-exp"  # Default translator model for query optimization and response humanization
 
 # Workspace TTL Configuration (Time To Live)
-DEFAULT_ENABLE_WORKSPACE_TTL = True  # Enable automatic workspace cleanup by default
+DEFAULT_ENABLE_WORKSPACE_TTL = False  # Enable automatic workspace cleanup by default
 DEFAULT_WORKSPACE_TTL_HOURS = 3  # Delete workspaces immediately after 3 hours of inactivity
 DEFAULT_WORKSPACE_CLEANUP_INTERVAL_HOURS = 1  # Run cleanup job every 1 hour
 
