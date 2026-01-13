@@ -19,8 +19,8 @@ from lightrag.api.config import get_env_value
 
 router = APIRouter(prefix="/workspace-ttl", tags=["workspace-ttl"])
 
-# Get API key for authentication
-api_key = get_env_value("API_KEY")
+# Get API key for authentication (None if not set)
+api_key = get_env_value("API_KEY", None)
 auth_dependency = get_combined_auth_dependency(api_key)
 
 
