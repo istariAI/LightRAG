@@ -9,7 +9,7 @@ import os
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
-from dataclasses import dataclass, field, as_dict
+from dataclasses import dataclass, field
 import json
 
 from lightrag.utils import logger
