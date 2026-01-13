@@ -98,6 +98,11 @@ DEFAULT_MAX_PARALLEL_INSERT = 32  # Default maximum parallel insert operations (
 DEFAULT_EMBEDDING_FUNC_MAX_ASYNC = 64  # Default max async for embedding functions (was 8, now 64 for max speed)
 DEFAULT_EMBEDDING_BATCH_NUM = 20  # Default batch size for embedding computations (was 10, now 20 for better batching)
 
+# Translation LLM Configuration (QUERY OPTIMIZATION + RESPONSE HUMANIZATION)
+DEFAULT_ENABLE_TRANSLATION = True  # Enable translation mode by default for maximum quality
+DEFAULT_TRANSLATOR_MAX_ASYNC = 32  # Concurrent translator LLM calls
+DEFAULT_TRANSLATOR_LLM_MODEL = "gemini-2.0-flash-exp"  # Default translator model for query optimization and response humanization
+
 # Debate/Critique LLM Configuration (QUALITY ENHANCEMENT)
 DEFAULT_ENABLE_DEBATE = True  # Enable debate mode by default for maximum quality
 DEFAULT_DEBATE_MAX_ASYNC = 32  # Concurrent debate LLM calls (lower than main LLM since sequential)

@@ -174,6 +174,19 @@ class QueryParam:
     This allows using a different (typically more advanced) model for quality refinement.
     """
 
+    enable_translation: bool = os.getenv("ENABLE_TRANSLATION", "true").lower() == "true"
+    """Enable LLM translation layer for query optimization and response humanization.
+    When enabled, a translator LLM optimizes the user query before retrieval and
+    translates the technical result into human-friendly language.
+    Default is True for maximum quality - always enabled.
+    """
+
+    translator_model_func: Callable[..., object] | None = None
+    """Optional LLM model function for the translation layer (query optimization + response humanization).
+    If enable_translation is True and this is None, will use the default translator model.
+    This should be a high-quality model (e.g., Gemini 2.5 Pro, GPT-4) for best results.
+    """
+
     include_references: bool = False
     """If True, includes reference list in the response for supported endpoints.
     This parameter controls whether the API response includes a references field

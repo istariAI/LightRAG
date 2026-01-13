@@ -371,6 +371,25 @@ class LightRAG:
     debate_model_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments passed to the debate LLM model function."""
 
+    # Translation LLM Configuration
+    # ---
+
+    translator_model_func: Callable[..., object] | None = field(default=None)
+    """Function for the translation LLM layer (query optimization + response humanization).
+    If None, translation mode will use llm_model_func. This should be a high-quality model
+    (e.g., Gemini 2.5 Pro, GPT-4) for best translation results."""
+
+    translator_model_name: str = field(default=os.getenv("TRANSLATOR_LLM_MODEL", "gemini-2.0-flash-exp"))
+    """Name of the translator LLM model. Defaults to Gemini 2.5 Pro for high-quality translation."""
+
+    translator_model_max_async: int = field(
+        default=int(os.getenv("TRANSLATOR_MAX_ASYNC", "32"))
+    )
+    """Maximum number of concurrent translator LLM calls."""
+
+    translator_model_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments passed to the translator LLM model function."""
+
     # Rerank Configuration
     # ---
 
@@ -700,6 +719,25 @@ class LightRAG:
             )
         else:
             logger.info("No separate debate model configured, will use main LLM if debate is enabled")
+
+        # Initialize translator model function if provided
+        if self.translator_model_func is not None:
+            logger.info(
+                f"Initializing translator model: {self.translator_model_name} with {self.translator_model_max_async} max async"
+            )
+            self.translator_model_func = priority_limit_async_func_call(
+                self.translator_model_max_async,
+                llm_timeout=self.default_llm_timeout,
+                queue_name="Translator LLM func",
+            )(
+                partial(
+                    self.translator_model_func,  # type: ignore
+                    hashing_kv=None,  # No caching for translator layer
+                    **self.translator_model_kwargs,
+                )
+            )
+        else:
+            logger.info("No separate translator model configured, will use main LLM if translation is enabled")
 
         self._storages_status = StoragesStatus.CREATED
 
@@ -2772,6 +2810,109 @@ class LightRAG:
             # If debate fails, return original response
             return original_response
 
+    async def _translate_query(
+        self,
+        user_query: str,
+        conversation_history: list[dict[str, str]],
+        param: QueryParam,
+    ) -> str:
+        """Translate user query into optimized retrieval query.
+
+        Args:
+            user_query: The user's original natural language question
+            conversation_history: Previous conversation for context
+            param: Query parameters
+
+        Returns:
+            str: Optimized query for knowledge graph retrieval
+        """
+        try:
+            # Use translator model if provided, otherwise fall back to main LLM
+            translator_func = param.translator_model_func or self.translator_model_func or self.llm_model_func
+
+            # Apply higher priority (10) for translation tasks
+            translator_func = partial(translator_func, _priority=10)
+
+            # Format conversation history for context
+            history_str = ""
+            if conversation_history:
+                history_str = "\n".join([
+                    f"{msg['role'].upper()}: {msg['content']}"
+                    for msg in conversation_history[-3:]  # Last 3 turns for context
+                ])
+            else:
+                history_str = "No previous conversation"
+
+            # Format the translation prompt
+            translation_prompt = PROMPTS["query_translation"].format(
+                conversation_history=history_str,
+                user_query=user_query
+            )
+
+            # Get optimized query from translator model
+            optimized_query = await translator_func(
+                translation_prompt,
+                system_prompt="You are an expert query optimizer for knowledge graph retrieval systems.",
+                enable_cot=False,
+                stream=False
+            )
+
+            logger.info(f"Query translation: '{user_query}' → '{optimized_query}'")
+            return optimized_query.strip()
+
+        except Exception as e:
+            logger.warning(f"Query translation failed: {e}. Using original query.")
+            # If translation fails, return original query
+            return user_query
+
+    async def _translate_response(
+        self,
+        user_query: str,
+        retrieval_result: str,
+        response_type: str,
+        param: QueryParam,
+    ) -> str:
+        """Translate technical retrieval result into human-friendly response.
+
+        Args:
+            user_query: The user's original question
+            retrieval_result: The technical result from retrieval LLM
+            response_type: Desired response format
+            param: Query parameters
+
+        Returns:
+            str: Natural, human-friendly response
+        """
+        try:
+            # Use translator model if provided, otherwise fall back to main LLM
+            translator_func = param.translator_model_func or self.translator_model_func or self.llm_model_func
+
+            # Apply higher priority (10) for translation tasks
+            translator_func = partial(translator_func, _priority=10)
+
+            # Format the translation prompt
+            translation_prompt = PROMPTS["response_translation"].format(
+                user_query=user_query,
+                retrieval_result=retrieval_result,
+                response_type=response_type
+            )
+
+            # Get humanized response from translator model
+            humanized_response = await translator_func(
+                translation_prompt,
+                system_prompt="You are an expert at converting technical information into clear, natural language.",
+                enable_cot=False,
+                stream=False
+            )
+
+            logger.info("Response translated to human-friendly format")
+            return humanized_response.strip()
+
+        except Exception as e:
+            logger.warning(f"Response translation failed: {e}. Using original result.")
+            # If translation fails, return original result
+            return retrieval_result
+
     async def aquery_llm(
         self,
         query: str,
@@ -2796,12 +2937,27 @@ class LightRAG:
 
         global_config = asdict(self)
 
+        # Store original query for later use
+        original_query = query.strip()
+
         try:
+            # Step 1: Translate query if translation is enabled
+            if param.enable_translation and not param.stream:
+                translated_query = await self._translate_query(
+                    user_query=original_query,
+                    conversation_history=param.conversation_history,
+                    param=param
+                )
+                # Use translated query for retrieval
+                query_for_retrieval = translated_query
+            else:
+                query_for_retrieval = original_query
+
             query_result = None
 
             if param.mode in ["local", "global", "hybrid", "mix"]:
                 query_result = await kg_query(
-                    query.strip(),
+                    query_for_retrieval,
                     self.chunk_entity_relation_graph,
                     self.entities_vdb,
                     self.relationships_vdb,
@@ -2814,7 +2970,7 @@ class LightRAG:
                 )
             elif param.mode == "naive":
                 query_result = await naive_query(
-                    query.strip(),
+                    query_for_retrieval,
                     self.chunks_vdb,
                     param,
                     global_config,
@@ -2884,8 +3040,24 @@ class LightRAG:
             # Extract structured data from query result
             raw_data = query_result.raw_data or {}
 
-            # Apply debate layer if enabled and response is not streaming
-            if param.enable_debate and not query_result.is_streaming and query_result.content:
+            # Step 2: Apply translation layer first (if enabled and not streaming)
+            current_response = query_result.content
+            translation_applied = False
+
+            if param.enable_translation and not query_result.is_streaming and current_response:
+                logger.info("Applying translation layer for response humanization")
+                current_response = await self._translate_response(
+                    user_query=original_query,
+                    retrieval_result=current_response,
+                    response_type=param.response_type,
+                    param=param
+                )
+                translation_applied = True
+
+            # Step 3: Apply debate layer for quality improvement (if enabled)
+            debate_applied = False
+
+            if param.enable_debate and not query_result.is_streaming and current_response:
                 logger.info("Applying debate layer for response quality improvement")
 
                 # Get context from raw_data if available
@@ -2902,31 +3074,31 @@ class LightRAG:
                 context_str = "\n\n".join(context_parts) if context_parts else "No context available"
 
                 # Apply debate layer
-                refined_content = await self._apply_debate_layer(
-                    query=query.strip(),
-                    original_response=query_result.content,
+                current_response = await self._apply_debate_layer(
+                    query=original_query,
+                    original_response=current_response,
                     context=context_str,
                     param=param
                 )
+                debate_applied = True
 
-                # Update the response with refined content
+            # Build final response
+            if not query_result.is_streaming:
                 raw_data["llm_response"] = {
-                    "content": refined_content,
+                    "content": current_response,
                     "response_iterator": None,
                     "is_streaming": False,
-                    "debate_applied": True,
-                    "original_response": query_result.content,  # Keep original for comparison
+                    "translation_applied": translation_applied,
+                    "debate_applied": debate_applied,
+                    "original_response": query_result.content if (translation_applied or debate_applied) else None,
                 }
             else:
-                # No debate layer - use original response
+                # Streaming mode - no translation or debate
                 raw_data["llm_response"] = {
-                    "content": query_result.content
-                    if not query_result.is_streaming
-                    else None,
-                    "response_iterator": query_result.response_iterator
-                    if query_result.is_streaming
-                    else None,
-                    "is_streaming": query_result.is_streaming,
+                    "content": None,
+                    "response_iterator": query_result.response_iterator,
+                    "is_streaming": True,
+                    "translation_applied": False,
                     "debate_applied": False,
                 }
 

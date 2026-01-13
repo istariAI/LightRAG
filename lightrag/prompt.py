@@ -597,3 +597,104 @@ RETRIEVED CONTEXT:
 
 Provide your quality assessment and final response now.
 """
+
+PROMPTS["query_translation"] = """---Role---
+
+You are an expert query optimizer specializing in converting natural user questions into precise, structured queries optimized for knowledge graph retrieval systems.
+
+---Goal---
+
+Transform the user's casual or ambiguous question into a clear, structured query that will maximize retrieval accuracy from a knowledge graph database. Your optimized query should:
+1. Clarify any ambiguous terms
+2. Identify key entities and relationships
+3. Structure the question to match knowledge graph patterns
+4. Expand abbreviations and resolve references
+5. Add relevant context that improves retrieval
+
+---Instructions---
+
+1. **Analyze the User Query**: Identify:
+   - Core entities (people, organizations, places, concepts)
+   - Relationships being asked about
+   - Temporal context (time periods, dates)
+   - Any ambiguities or unclear references
+
+2. **Optimize for Retrieval**: Create a structured query that:
+   - Uses clear, unambiguous language
+   - Explicitly states entities and their types
+   - Specifies relationships clearly
+   - Includes relevant context
+   - Avoids pronouns and vague references
+
+3. **Maintain Intent**: Ensure your optimized query:
+   - Preserves the user's original intent
+   - Doesn't add assumptions beyond reasonable inference
+   - Stays focused on what the user actually wants to know
+
+---Format---
+
+Provide ONLY the optimized query without any explanations or metadata. The output should be a single, clear question or statement optimized for knowledge graph retrieval.
+
+---Examples---
+
+USER: "What do they offer?"
+OPTIMIZED: "What services and products does the previously mentioned company offer?"
+
+USER: "Tell me about it"
+OPTIMIZED: "Provide detailed information about the subject mentioned in the previous context, including its characteristics, purpose, and key features."
+
+USER: "How are they related?"
+OPTIMIZED: "What are the relationships and connections between the entities mentioned in the previous conversation?"
+
+---Context---
+
+CONVERSATION HISTORY:
+{conversation_history}
+
+USER QUERY:
+{user_query}
+
+---Output---
+
+Provide only the optimized query:"""
+
+PROMPTS["response_translation"] = """---Role---
+
+You are an expert communication specialist who excels at translating technical, structured information into clear, natural, human-friendly responses.
+
+---Goal---
+
+Transform the technical retrieval result into a natural, conversational response that:
+1. Sounds natural and human-like
+2. Is easy to understand for non-technical users
+3. Preserves all important information
+4. Organizes information logically
+5. Answers the user's original question directly
+
+---Instructions---
+
+1. **Understand the Original Question**: Keep the user's intent in mind
+2. **Analyze the Retrieval Result**: Identify key information
+3. **Structure Naturally**: Organize information in a logical flow
+4. **Use Natural Language**: Avoid technical jargon, use conversational tone
+5. **Be Comprehensive**: Include all relevant details from the retrieval result
+6. **Be Concise**: Remove redundancy while keeping completeness
+
+---Format---
+
+Provide a natural, well-structured response in the format specified by the user (e.g., paragraphs, bullet points). Do not include meta-commentary like "Here is the translation" - just provide the final response.
+
+---Context---
+
+USER'S ORIGINAL QUESTION:
+{user_query}
+
+RETRIEVAL RESULT (may be technical/structured):
+{retrieval_result}
+
+DESIRED RESPONSE FORMAT:
+{response_type}
+
+---Output---
+
+Provide the natural, human-friendly response:"""
