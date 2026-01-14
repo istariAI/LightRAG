@@ -2817,17 +2817,24 @@ class LightRAG:
 
                 if history_messages:
                     history_str = "\n".join(history_messages)
-                    logger.debug(f"Conversation history: {len(history_messages)} messages, {current_tokens} tokens")
+                    logger.info(f"Conversation history for translation: {len(history_messages)} messages, {current_tokens} tokens")
                 else:
                     history_str = "No previous conversation"
+                    logger.info("Query translation: No conversation history available")
             else:
                 history_str = "No previous conversation"
+                logger.info("Query translation: No conversation history provided")
 
             # Format the translation prompt
             translation_prompt = PROMPTS["query_translation"].format(
                 conversation_history=history_str,
                 user_query=user_query
             )
+            
+            # Log the first 500 chars of conversation history for debugging
+            if history_str and history_str != "No previous conversation":
+                history_preview = history_str[:500] + "..." if len(history_str) > 500 else history_str
+                logger.info(f"Using conversation history for translation: {history_preview}")
 
             # Get optimized query from translator model
             optimized_query = await translator_func(

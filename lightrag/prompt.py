@@ -594,10 +594,23 @@ Transform the user's casual or ambiguous question into a clear, structured query
    - Topics being discussed
    - Context that helps resolve pronouns and references
 
-2. **Resolve References**: When the user query contains pronouns or references like "this", "that", "they", "it", "the company", "this person", etc.:
-   - Look at the conversation history to identify the SPECIFIC entity being referenced
-   - Replace the pronoun/reference with the actual entity NAME from the conversation
-   - Example: If the history mentions "Loady GmbH" and the user asks "where is the headquarter of this company?", output "What is the location of the headquarters of Loady GmbH?"
+2. **CRITICAL: Resolve All References to Actual Entity Names**:
+   
+   This is THE MOST IMPORTANT step. When the user query contains ANY reference like:
+   - Pronouns: "they", "it", "he", "she"
+   - Vague references: "the company", "the person", "this organization", "that product", "the startup", "the firm"
+   - Relative terms: "their product", "its headquarters", "his role"
+   
+   You MUST:
+   - Search the conversation history to find the EXACT entity name being discussed
+   - Replace ALL vague references with the SPECIFIC entity name
+   - NEVER output "the company mentioned before" or "the previously discussed organization"
+   - ALWAYS use the actual name like "ISTARI.AI GmbH", "Loady GmbH", etc.
+   
+   Examples:
+   - History mentions "ISTARI.AI GmbH" → Query: "where is the headquarter of the company?" → Output: "What is the location of the headquarters of ISTARI.AI GmbH?"
+   - History mentions "Dr. Schmidt" → Query: "what is his role?" → Output: "What is the role of Dr. Schmidt?"
+   - History mentions "Apple Inc." → Query: "tell me about their products" → Output: "What products does Apple Inc. offer?"
 
 3. **Analyze the User Query**: Identify:
    - Core entities (people, organizations, places, concepts)
@@ -648,6 +661,15 @@ ASSISTANT: "Microsoft is headquartered in Redmond, Washington..."
 USER: "How many employees do they have?"
 OPTIMIZED: "How many employees does Microsoft have?"
 
+---
+
+CONVERSATION HISTORY:
+USER: "what is the main product of ISTARI.AI GmbH?"
+ASSISTANT: "ISTARI.AI GmbH specializes in AI-driven market intelligence, offering a webAI platform..."
+
+USER: "then where is the headquarter of the company?"
+OPTIMIZED: "What is the location of the headquarters of ISTARI.AI GmbH?"
+
 ---Context---
 
 CONVERSATION HISTORY:
@@ -656,9 +678,14 @@ CONVERSATION HISTORY:
 USER QUERY:
 {user_query}
 
----Output---
+---Output Requirements---
 
-Provide only the optimized query:"""
+Before providing your output, verify:
+1. Have you replaced ALL pronouns and vague references with actual entity names from the conversation history?
+2. Does your query contain SPECIFIC names (like "ISTARI.AI GmbH") instead of generic terms (like "the company")?
+3. If you cannot find a specific entity name in the history, keep the reference as is
+
+Provide ONLY the optimized query (no explanations):"""
 
 PROMPTS["response_translation"] = """---Role---
 
