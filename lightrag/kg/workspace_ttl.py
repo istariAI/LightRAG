@@ -191,8 +191,27 @@ class WorkspaceTTLManager:
             now = datetime.now()
 
             if workspace_name not in self._metadata_cache:
-                # Workspace not tracked yet, register it
-                return await self.register_workspace(workspace_name)
+                # Create new workspace metadata inline to avoid nested lock acquisition
+                metadata = WorkspaceMetadata(
+                    workspace_name=workspace_name,
+                    created_at=now,
+                    last_accessed_at=now,
+                    document_count=0,
+                    status="active",
+                )
+                self._metadata_cache[workspace_name] = metadata
+                
+                # Update expiration time
+                if self.enable_ttl:
+                    metadata.expires_at = self._calculate_expires_at(now)
+                else:
+                    metadata.expires_at = None
+                
+                self._save_metadata()
+                logger.info(
+                    f"Registered workspace '{workspace_name}' (expires: {metadata.expires_at})"
+                )
+                return metadata
 
             metadata = self._metadata_cache[workspace_name]
             metadata.last_accessed_at = now

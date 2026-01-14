@@ -461,10 +461,15 @@ def create_app(args):
         return [origin.strip() for origin in origins_str.split(",")]
 
     # Add CORS middleware
+    # Note: allow_credentials=True is incompatible with allow_origins=["*"]
+    # When using wildcard origins, credentials must be False
+    cors_origins = get_cors_origins()
+    allow_credentials = cors_origins != ["*"]
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=get_cors_origins(),
-        allow_credentials=True,
+        allow_origins=cors_origins,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
