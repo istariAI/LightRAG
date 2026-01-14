@@ -433,7 +433,23 @@ def create_app(args):
             )
         else:
             # For other endpoints, return the default FastAPI validation error
-            return JSONResponse(status_code=422, content={"detail": exc.errors()})
+            # Sanitize errors to ensure JSON serializability
+            sanitized_errors = []
+            for error in exc.errors():
+                sanitized_error = {
+                    "type": error.get("type"),
+                    "loc": error.get("loc"),
+                    "msg": error.get("msg"),
+                    "input": error.get("input"),
+                }
+                # Convert ctx values to strings if they exist
+                if "ctx" in error:
+                    sanitized_error["ctx"] = {
+                        k: str(v) for k, v in error["ctx"].items()
+                    }
+                sanitized_errors.append(sanitized_error)
+            
+            return JSONResponse(status_code=422, content={"detail": sanitized_errors})
 
     def get_cors_origins():
         """Get allowed origins from global_args

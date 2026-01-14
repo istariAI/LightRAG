@@ -2191,6 +2191,46 @@ class LightRAG:
                 to_process_docs.update(pending_docs)
 
         finally:
+            # Run automatic entity deduplication if enabled
+            from lightrag.constants import DEFAULT_ENABLE_ENTITY_DEDUP, DEFAULT_ENTITY_DEDUP_THRESHOLD, DEFAULT_ENTITY_DEDUP_BATCH_SIZE
+            import os
+
+            enable_dedup = os.getenv("ENABLE_ENTITY_DEDUP", str(DEFAULT_ENABLE_ENTITY_DEDUP)).lower() == "true"
+
+            if enable_dedup:
+                try:
+                    logger.info("Starting automatic entity deduplication after document processing")
+                    from lightrag.kg.entity_deduplication import EntityDeduplicationManager
+
+                    # Get configuration
+                    similarity_threshold = float(os.getenv("ENTITY_DEDUP_THRESHOLD", DEFAULT_ENTITY_DEDUP_THRESHOLD))
+                    batch_size = int(os.getenv("ENTITY_DEDUP_BATCH_SIZE", DEFAULT_ENTITY_DEDUP_BATCH_SIZE))
+
+                    # Create deduplication manager
+                    dedup_manager = EntityDeduplicationManager(
+                        knowledge_graph_inst=self.chunk_entity_relation_graph,
+                        entities_vdb=self.entities_vdb,
+                        chunks_vdb=self.chunks_vdb,
+                        llm_model_func=self.llm_model_func,
+                        similarity_threshold=similarity_threshold,
+                        batch_size=batch_size,
+                    )
+
+                    # Run deduplication
+                    result = await dedup_manager.deduplicate_entities(dry_run=False)
+
+                    if result.get("merges_performed", 0) > 0:
+                        logger.info(
+                            f"Automatic entity deduplication completed: "
+                            f"{result['merges_performed']} entities merged from "
+                            f"{result['candidates_found']} candidates"
+                        )
+                    else:
+                        logger.info("Automatic entity deduplication completed: No duplicates found")
+
+                except Exception as e:
+                    logger.error(f"Automatic entity deduplication failed: {e}", exc_info=True)
+
             log_message = "Enqueued document processing pipeline stopped"
             logger.info(log_message)
             # Always reset busy status and cancellation flag when done or if an exception occurs (with lock)
