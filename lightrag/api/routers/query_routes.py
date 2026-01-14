@@ -4,7 +4,7 @@ This module contains all query-related routes for the LightRAG API.
 
 import json
 from typing import Any, Dict, List, Literal, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from lightrag.base import QueryParam
 from lightrag.api.utils_api import get_combined_auth_dependency
 from lightrag.utils import logger
@@ -322,7 +322,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             },
         },
     )
-    async def query_text(request: QueryRequest):
+    async def query_text(query_request: QueryRequest, request: Request):
         """
         Comprehensive RAG query endpoint with non-streaming response. Parameter "stream" is ignored.
 
@@ -404,17 +404,17 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
         try:
             # Track workspace access for TTL
             from lightrag.kg.workspace_ttl import track_workspace_access
-            workspace_name = request.workspace or "default"
+            workspace_name = request.headers.get("X-Workspace", "default")
             await track_workspace_access(workspace_name)
 
-            param = request.to_query_params(
+            param = query_request.to_query_params(
                 False
             )  # Ensure stream=False for non-streaming endpoint
             # Force stream=False for /query endpoint regardless of include_references setting
             param.stream = False
 
             # Unified approach: always use aquery_llm for both cases
-            result = await rag.aquery_llm(request.query, param=param)
+            result = await rag.aquery_llm(query_request.query, param=param)
 
             # Extract LLM response and references from unified result
             llm_response = result.get("llm_response", {})
@@ -427,7 +427,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                 response_content = "No relevant context found for the query."
 
             # Enrich references with chunk content if requested
-            if request.include_references and request.include_chunk_content:
+            if query_request.include_references and query_request.include_chunk_content:
                 chunks = data.get("chunks", [])
                 # Create a mapping from reference_id to chunk content
                 ref_id_to_content = {}
@@ -450,7 +450,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                 references = enriched_references
 
             # Return response with or without references based on request
-            if request.include_references:
+            if query_request.include_references:
                 return QueryResponse(response=response_content, references=references)
             else:
                 return QueryResponse(response=response_content, references=None)
@@ -537,7 +537,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             },
         },
     )
-    async def query_text_stream(request: QueryRequest):
+    async def query_text_stream(query_request: QueryRequest, request: Request):
         """
         Advanced RAG query endpoint with flexible streaming response.
 
@@ -667,17 +667,17 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
         try:
             # Track workspace access for TTL
             from lightrag.kg.workspace_ttl import track_workspace_access
-            workspace_name = request.workspace or "default"
+            workspace_name = request.headers.get("X-Workspace", "default")
             await track_workspace_access(workspace_name)
 
             # Use the stream parameter from the request, defaulting to True if not specified
-            stream_mode = request.stream if request.stream is not None else True
-            param = request.to_query_params(stream_mode)
+            stream_mode = query_request.stream if query_request.stream is not None else True
+            param = query_request.to_query_params(stream_mode)
 
             from fastapi.responses import StreamingResponse
 
             # Unified approach: always use aquery_llm for all cases
-            result = await rag.aquery_llm(request.query, param=param)
+            result = await rag.aquery_llm(query_request.query, param=param)
 
             async def stream_generator():
                 # Extract references and LLM response from unified result
@@ -685,7 +685,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                 llm_response = result.get("llm_response", {})
 
                 # Enrich references with chunk content if requested
-                if request.include_references and request.include_chunk_content:
+                if query_request.include_references and query_request.include_chunk_content:
                     data = result.get("data", {})
                     chunks = data.get("chunks", [])
                     # Create a mapping from reference_id to chunk content
@@ -710,7 +710,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
 
                 if llm_response.get("is_streaming"):
                     # Streaming mode: send references first, then stream response chunks
-                    if request.include_references:
+                    if query_request.include_references:
                         yield f"{json.dumps({'references': references})}\n"
 
                     response_stream = llm_response.get("response_iterator")
@@ -730,7 +730,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
 
                     # Create complete response object
                     complete_response = {"response": response_content}
-                    if request.include_references:
+                    if query_request.include_references:
                         complete_response["references"] = references
 
                     yield f"{json.dumps(complete_response)}\n"
@@ -1045,7 +1045,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             },
         },
     )
-    async def query_data(request: QueryRequest):
+    async def query_data(query_request: QueryRequest, request: Request):
         """
         Advanced data retrieval endpoint for structured RAG analysis.
 
@@ -1151,11 +1151,11 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
         try:
             # Track workspace access for TTL
             from lightrag.kg.workspace_ttl import track_workspace_access
-            workspace_name = request.workspace or "default"
+            workspace_name = request.headers.get("X-Workspace", "default")
             await track_workspace_access(workspace_name)
 
-            param = request.to_query_params(False)  # No streaming for data endpoint
-            response = await rag.aquery_data(request.query, param=param)
+            param = query_request.to_query_params(False)  # No streaming for data endpoint
+            response = await rag.aquery_data(query_request.query, param=param)
 
             # aquery_data returns the new format with status, message, data, and metadata
             if isinstance(response, dict):

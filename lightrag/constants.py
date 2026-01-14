@@ -108,6 +108,11 @@ DEFAULT_ENABLE_WORKSPACE_TTL = False  # Enable automatic workspace cleanup by de
 DEFAULT_WORKSPACE_TTL_HOURS = 3  # Delete workspaces immediately after 3 hours of inactivity
 DEFAULT_WORKSPACE_CLEANUP_INTERVAL_HOURS = 1  # Run cleanup job every 1 hour
 
+# Entity Deduplication Configuration
+DEFAULT_ENABLE_ENTITY_DEDUP = True  # Entity deduplication enabled for high-quality entity merging
+DEFAULT_ENTITY_DEDUP_THRESHOLD = 0.85  # Similarity confidence threshold (0.85 = 85% confident)
+DEFAULT_ENTITY_DEDUP_BATCH_SIZE = 50  # Number of entity pairs to process in parallel
+
 # Gunicorn worker timeout
 DEFAULT_TIMEOUT = 300
 

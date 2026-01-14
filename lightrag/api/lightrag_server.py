@@ -1096,6 +1096,10 @@ def create_app(args):
     from lightrag.api.routers import workspace_ttl_routes
     app.include_router(workspace_ttl_routes.router)
 
+    # Add Entity Deduplication routes
+    from lightrag.api.routers import entity_dedup_routes
+    app.include_router(entity_dedup_routes.router)
+
     # Add Ollama API routes
     ollama_api = OllamaAPI(rag, top_k=args.top_k, api_key=api_key)
     app.include_router(ollama_api.router, prefix="/api")
