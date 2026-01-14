@@ -131,7 +131,6 @@ const useSettingsStoreBase = create<SettingsState>()(
         only_need_context: false,
         only_need_prompt: false,
         stream: true,
-        history_turns: 1,
         user_prompt: '',
         enable_rerank: true
       },
@@ -264,7 +263,6 @@ const useSettingsStoreBase = create<SettingsState>()(
             only_need_context: false,
             only_need_prompt: false,
             stream: true,
-            history_turns: 1,
             hl_keywords: [],
             ll_keywords: []
           }
@@ -315,7 +313,6 @@ const useSettingsStoreBase = create<SettingsState>()(
             max_relation_tokens: 10000,
             max_total_tokens: 32000,
             enable_rerank: true,
-            history_turns: 1,
           }
         }
         if (version < 16) {
@@ -323,10 +320,8 @@ const useSettingsStoreBase = create<SettingsState>()(
           state.documentsPageSize = 10
         }
         if (version < 17) {
-          // Enable conversation history by default (1 = enabled with ALL history)
-          if (state.querySettings) {
-            state.querySettings.history_turns = 1
-          }
+          // Removed history_turns - conversation history is now always enabled
+          // Token budget is controlled by backend CONVERSATION_HISTORY_TOKEN_BUDGET env var
         }
         if (version < 18) {
           // Add userPromptHistory field for older versions

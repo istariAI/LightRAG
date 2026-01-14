@@ -129,10 +129,9 @@ export type QueryRequest = {
   /**
    * Stores past conversation history to maintain context.
    * Format: [{"role": "user/assistant", "content": "message"}].
+   * Conversation history is ALWAYS sent - token budget managed by backend CONVERSATION_HISTORY_TOKEN_BUDGET env var.
    */
   conversation_history?: Message[]
-  /** Number of complete conversation turns (user-assistant pairs) to consider in the response context. */
-  history_turns?: number
   /** User-provided prompt for the query. If provided, this will be used instead of the default value from prompt template. */
   user_prompt?: string
   /** Enable reranking for retrieved text chunks. If True but no rerank model is configured, a warning will be issued. Default is True. */
