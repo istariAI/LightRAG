@@ -2781,13 +2781,45 @@ class LightRAG:
             # Apply higher priority (10) for translation tasks
             translator_func = partial(translator_func, _priority=10)
 
-            # Format conversation history for context
+            # Format conversation history with smart token budget management
             history_str = ""
             if conversation_history:
-                history_str = "\n".join([
-                    f"{msg['role'].upper()}: {msg['content']}"
-                    for msg in conversation_history[-3:]  # Last 3 turns for context
-                ])
+                # Apply token budget to conversation history (default: 4096 tokens)
+                # This balances context quality with cost efficiency
+                history_token_budget = int(os.getenv("CONVERSATION_HISTORY_TOKEN_BUDGET", "4096"))
+
+                # Get tokenizer for accurate token counting
+                tokenizer = self.tokenizer
+
+                # Build history from most recent to oldest, respecting token budget
+                history_messages = []
+                current_tokens = 0
+
+                # Always include most recent messages first (reverse order)
+                for msg in reversed(conversation_history):
+                    msg_str = f"{msg['role'].upper()}: {msg['content']}"
+                    msg_tokens = len(tokenizer.encode(msg_str))
+
+                    # Check if adding this message would exceed budget
+                    if current_tokens + msg_tokens > history_token_budget:
+                        # If we haven't included any messages yet, include at least the last one
+                        # (even if it exceeds budget slightly)
+                        if len(history_messages) == 0:
+                            history_messages.append(msg_str)
+                            current_tokens += msg_tokens
+                        break
+
+                    history_messages.append(msg_str)
+                    current_tokens += msg_tokens
+
+                # Reverse back to chronological order
+                history_messages.reverse()
+
+                if history_messages:
+                    history_str = "\n".join(history_messages)
+                    logger.debug(f"Conversation history: {len(history_messages)} messages, {current_tokens} tokens")
+                else:
+                    history_str = "No previous conversation"
             else:
                 history_str = "No previous conversation"
 

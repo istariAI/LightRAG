@@ -131,7 +131,7 @@ const useSettingsStoreBase = create<SettingsState>()(
         only_need_context: false,
         only_need_prompt: false,
         stream: true,
-        history_turns: 0,
+        history_turns: 1,
         user_prompt: '',
         enable_rerank: true
       },
@@ -189,11 +189,8 @@ const useSettingsStoreBase = create<SettingsState>()(
       setRetrievalHistory: (history: Message[]) => set({ retrievalHistory: history }),
 
       updateQuerySettings: (settings: Partial<QueryRequest>) => {
-        // Filter out history_turns to prevent changes, always keep it as 0
-        const filteredSettings = { ...settings }
-        delete filteredSettings.history_turns
         set((state) => ({
-          querySettings: { ...state.querySettings, ...filteredSettings, history_turns: 0 }
+          querySettings: { ...state.querySettings, ...settings }
         }))
       },
 
@@ -267,7 +264,7 @@ const useSettingsStoreBase = create<SettingsState>()(
             only_need_context: false,
             only_need_prompt: false,
             stream: true,
-            history_turns: 0,
+            history_turns: 1,
             hl_keywords: [],
             ll_keywords: []
           }
@@ -318,7 +315,7 @@ const useSettingsStoreBase = create<SettingsState>()(
             max_relation_tokens: 10000,
             max_total_tokens: 32000,
             enable_rerank: true,
-            history_turns: 0,
+            history_turns: 1,
           }
         }
         if (version < 16) {
@@ -326,9 +323,9 @@ const useSettingsStoreBase = create<SettingsState>()(
           state.documentsPageSize = 10
         }
         if (version < 17) {
-          // Force history_turns to 0 for all users
+          // Enable conversation history by default (1 = enabled with ALL history)
           if (state.querySettings) {
-            state.querySettings.history_turns = 0
+            state.querySettings.history_turns = 1
           }
         }
         if (version < 18) {

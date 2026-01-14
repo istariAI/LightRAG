@@ -348,21 +348,22 @@ export default function RetrievalTesting() {
       // Determine the effective mode
       const effectiveMode = modeOverride || state.querySettings.mode
 
-      // Determine effective history turns with bypass override
+      // Determine if conversation history should be included
+      // If history_turns > 0, send ALL conversation history (not limited to specific turns)
+      // The backend will intelligently manage context with recency weighting
       const configuredHistoryTurns = state.querySettings.history_turns || 0
-      const effectiveHistoryTurns = (effectiveMode === 'bypass' && configuredHistoryTurns === 0)
-        ? 3
-        : configuredHistoryTurns
+      const shouldIncludeHistory = (effectiveMode === 'bypass' && configuredHistoryTurns === 0)
+        ? true  // Always enable for bypass mode if not explicitly disabled
+        : configuredHistoryTurns > 0
 
       const queryParams = {
         ...state.querySettings,
         query: actualQuery,
         response_type: 'Multiple Paragraphs',
-        conversation_history: effectiveHistoryTurns > 0
+        conversation_history: shouldIncludeHistory
           ? prevMessages
             .filter((m) => m.isError !== true)
-            .slice(-effectiveHistoryTurns * 2)
-            .map((m) => ({ role: m.role, content: m.content }))
+            .map((m) => ({ role: m.role, content: m.content }))  // Send ALL history
           : [],
         ...(modeOverride ? { mode: modeOverride } : {})
       }

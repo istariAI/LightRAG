@@ -51,8 +51,14 @@ DEFAULT_COSINE_THRESHOLD = 0.2
 DEFAULT_RELATED_CHUNK_NUMBER = 5
 DEFAULT_KG_CHUNK_PICK_METHOD = "VECTOR"
 
-# TODO: Deprated. All conversation_history messages is send to LLM.
+# TODO: Deprecated. All conversation_history messages are sent to LLM with token budget management.
 DEFAULT_HISTORY_TURNS = 0
+
+# Conversation history token budget (default: 4096 tokens)
+# Controls how much conversation history is sent to LLM for context
+# Higher values = more context but higher cost
+# Lower values = less context but lower cost
+DEFAULT_CONVERSATION_HISTORY_TOKEN_BUDGET = 4096
 
 # Rerank configuration defaults
 DEFAULT_MIN_RERANK_SCORE = 0.0
