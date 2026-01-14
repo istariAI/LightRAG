@@ -93,8 +93,9 @@ entity{tuple_delimiter}TechFlow Solutions GmbH{tuple_delimiter}Organization{tupl
 **Relationship Types:**
 
 **Organizational Structure** (only if explicitly stated):
-- `is_ceo_of`, `is_cto_of`, `is_cfo_of`, `is_founder_of`, `is_co_founder_of`
-- `works_for`, `leads`, `manages`
+- `is_ceo_of`, `is_cto_of`, `is_cfo_of`, `is_founder_of`, `is_co_founder_of` - for C-level executives and founders
+- `works_for` - for ANY person-organization employment relationship (including regular employees, engineers, designers, etc.)
+- `leads`, `manages` - for management relationships
 
 **Business Relationships** (require explicit evidence):
 - `has_customer`: ONLY if monetary/transactional relationship stated or strongly implied (logo placements count)
@@ -286,6 +287,39 @@ relation{tuple_delimiter}TechFlow Solutions GmbH{tuple_delimiter}Munich Technica
 relation{tuple_delimiter}TechFlow Solutions GmbH{tuple_delimiter}AWS{tuple_delimiter}has_partner{tuple_delimiter}TechFlow has a technology alliance with AWS for cloud infrastructure.{tuple_delimiter}Partners section: "AWS: Technology alliance partner for cloud infrastructure"
 relation{tuple_delimiter}TechFlow Solutions GmbH{tuple_delimiter}Series B €15M March 2023{tuple_delimiter}raised_funding_round{tuple_delimiter}TechFlow raised €15M in Series B funding in March 2023.{tuple_delimiter}Funding section: "Series B round: €15M led by Earlybird Venture Capital (March 2023)"
 relation{tuple_delimiter}Earlybird Venture Capital{tuple_delimiter}TechFlow Solutions GmbH{tuple_delimiter}invested_in{tuple_delimiter}Earlybird Venture Capital led TechFlow's €15M Series B round.{tuple_delimiter}Funding section: "led by Earlybird Venture Capital (March 2023)"
+{completion_delimiter}
+
+""",
+    """<Entity_types>
+["Organization","Person","Location"]
+
+<Input Text>
+```
+### Loady GmbH Team
+Our team includes:
+- Anna Mueller - Senior Backend Engineer at Loady GmbH
+- Vladislav - UX/UI Designer at Loady GmbH  
+- Kirill - Senior Backend Engineer at Loady GmbH
+- Heinz - Senior Backend Engineer at Loady GmbH
+- Neila - Senior Backend Engineer at Loady GmbH
+
+Address: Julius-Hatry-Str. 1, 68163 Mannheim, Germany
+```
+
+<Output>
+entity{tuple_delimiter}Loady GmbH{tuple_delimiter}Organization{tuple_delimiter}Technology company based in Mannheim, Germany. Type: Company.{tuple_delimiter}Company name mentioned multiple times with team members
+entity{tuple_delimiter}Anna Mueller{tuple_delimiter}Person{tuple_delimiter}Anna Mueller is a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Anna Mueller - Senior Backend Engineer at Loady GmbH"
+entity{tuple_delimiter}Vladislav{tuple_delimiter}Person{tuple_delimiter}Vladislav is a UX/UI Designer at Loady GmbH.{tuple_delimiter}Team section: "Vladislav - UX/UI Designer at Loady GmbH"
+entity{tuple_delimiter}Kirill{tuple_delimiter}Person{tuple_delimiter}Kirill is a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Kirill - Senior Backend Engineer at Loady GmbH"
+entity{tuple_delimiter}Heinz{tuple_delimiter}Person{tuple_delimiter}Heinz is a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Heinz - Senior Backend Engineer at Loady GmbH"
+entity{tuple_delimiter}Neila{tuple_delimiter}Person{tuple_delimiter}Neila is a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Neila - Senior Backend Engineer at Loady GmbH"
+entity{tuple_delimiter}Headquarters: Julius-Hatry-Str. 1, Mannheim, Germany{tuple_delimiter}Location{tuple_delimiter}Loady GmbH headquarters in Mannheim, Germany.{tuple_delimiter}Address line: "Julius-Hatry-Str. 1, 68163 Mannheim, Germany"
+relation{tuple_delimiter}Anna Mueller{tuple_delimiter}Loady GmbH{tuple_delimiter}works_for{tuple_delimiter}Anna Mueller works as a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Anna Mueller - Senior Backend Engineer at Loady GmbH"
+relation{tuple_delimiter}Vladislav{tuple_delimiter}Loady GmbH{tuple_delimiter}works_for{tuple_delimiter}Vladislav works as a UX/UI Designer at Loady GmbH.{tuple_delimiter}Team section: "Vladislav - UX/UI Designer at Loady GmbH"
+relation{tuple_delimiter}Kirill{tuple_delimiter}Loady GmbH{tuple_delimiter}works_for{tuple_delimiter}Kirill works as a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Kirill - Senior Backend Engineer at Loady GmbH"
+relation{tuple_delimiter}Heinz{tuple_delimiter}Loady GmbH{tuple_delimiter}works_for{tuple_delimiter}Heinz works as a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Heinz - Senior Backend Engineer at Loady GmbH"
+relation{tuple_delimiter}Neila{tuple_delimiter}Loady GmbH{tuple_delimiter}works_for{tuple_delimiter}Neila works as a Senior Backend Engineer at Loady GmbH.{tuple_delimiter}Team section: "Neila - Senior Backend Engineer at Loady GmbH"
+relation{tuple_delimiter}Loady GmbH{tuple_delimiter}Headquarters: Julius-Hatry-Str. 1, Mannheim, Germany{tuple_delimiter}headquartered_at{tuple_delimiter}Loady GmbH is headquartered in Mannheim, Germany.{tuple_delimiter}Address line: "Julius-Hatry-Str. 1, 68163 Mannheim, Germany"
 {completion_delimiter}
 
 """,
@@ -555,20 +589,30 @@ Transform the user's casual or ambiguous question into a clear, structured query
 
 ---Instructions---
 
-1. **Analyze the User Query**: Identify:
+1. **Analyze the Conversation History**: Before processing the user query, carefully review the conversation history to identify:
+   - Specific entities mentioned (names of people, organizations, places, products, etc.)
+   - Topics being discussed
+   - Context that helps resolve pronouns and references
+
+2. **Resolve References**: When the user query contains pronouns or references like "this", "that", "they", "it", "the company", "this person", etc.:
+   - Look at the conversation history to identify the SPECIFIC entity being referenced
+   - Replace the pronoun/reference with the actual entity NAME from the conversation
+   - Example: If the history mentions "Loady GmbH" and the user asks "where is the headquarter of this company?", output "What is the location of the headquarters of Loady GmbH?"
+
+3. **Analyze the User Query**: Identify:
    - Core entities (people, organizations, places, concepts)
    - Relationships being asked about
    - Temporal context (time periods, dates)
    - Any ambiguities or unclear references
 
-2. **Optimize for Retrieval**: Create a structured query that:
+4. **Optimize for Retrieval**: Create a structured query that:
    - Uses clear, unambiguous language
-   - Explicitly states entities and their types
+   - Explicitly states entities by their ACTUAL NAMES (not "the company mentioned before" but "Loady GmbH")
    - Specifies relationships clearly
    - Includes relevant context
-   - Avoids pronouns and vague references
+   - Completely avoids pronouns and vague references
 
-3. **Maintain Intent**: Ensure your optimized query:
+5. **Maintain Intent**: Ensure your optimized query:
    - Preserves the user's original intent
    - Doesn't add assumptions beyond reasonable inference
    - Stays focused on what the user actually wants to know
@@ -579,14 +623,30 @@ Provide ONLY the optimized query without any explanations or metadata. The outpu
 
 ---Examples---
 
+CONVERSATION HISTORY:
+USER: "Tell me about Apple Inc."
+ASSISTANT: "Apple Inc. is a technology company..."
+
 USER: "What do they offer?"
-OPTIMIZED: "What services and products does the previously mentioned company offer?"
+OPTIMIZED: "What products and services does Apple Inc. offer?"
 
-USER: "Tell me about it"
-OPTIMIZED: "Provide detailed information about the subject mentioned in the previous context, including its characteristics, purpose, and key features."
+---
 
-USER: "How are they related?"
-OPTIMIZED: "What are the relationships and connections between the entities mentioned in the previous conversation?"
+CONVERSATION HISTORY:
+USER: "Who works at Tesla?"
+ASSISTANT: "Tesla employs engineers and developers..."
+
+USER: "Tell me about their CEO"
+OPTIMIZED: "Who is the CEO of Tesla and what is their background?"
+
+---
+
+CONVERSATION HISTORY:
+USER: "What is the headquarters of Microsoft?"
+ASSISTANT: "Microsoft is headquartered in Redmond, Washington..."
+
+USER: "How many employees do they have?"
+OPTIMIZED: "How many employees does Microsoft have?"
 
 ---Context---
 
